@@ -4,7 +4,8 @@ import { CHAPTERS, type Chapter } from "@/lib/mockData";
 import { useEffect, useState } from "react";
 import Layout from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ChevronRight, Clock } from "lucide-react";
+import { BookOpen, ChevronRight, Clock, Linkedin } from "lucide-react";
+import { SettingsMenu } from "@/components/reader/settings-menu";
 
 export default function Home() {
   const { lastReadChapterId, chapterProgress } = useProgress();
@@ -30,17 +31,22 @@ export default function Home() {
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
 
         {/* Header / Brand */}
-        <header className="mb-12 relative z-10 animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="h-px w-8 bg-primary/50"></div>
-            <span className="text-xs uppercase tracking-[0.2em] text-primary font-medium">Interactive Novel</span>
+        <header className="mb-12 relative z-10 animate-in fade-in slide-in-from-top-4 duration-700 flex justify-between items-start">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-px w-8 bg-primary/50"></div>
+              <span className="text-xs uppercase tracking-[0.2em] text-primary font-medium">Interactive Novel</span>
+            </div>
+            <h1 className="text-5xl md:text-6xl font-display font-bold leading-[0.9] text-foreground mb-4">
+              Ananse
+            </h1>
+            <p className="text-lg font-serif italic text-muted-foreground/80 max-w-xs">
+              The Golden Deception
+            </p>
           </div>
-          <h1 className="text-5xl md:text-6xl font-display font-bold leading-[0.9] text-foreground mb-4">
-            Ananse
-          </h1>
-          <p className="text-lg font-serif italic text-muted-foreground/80 max-w-xs">
-            The Golden Deception
-          </p>
+          <div className="mt-2">
+            <SettingsMenu />
+          </div>
         </header>
 
         <main className="flex-1 space-y-8 relative z-10">
@@ -129,6 +135,32 @@ export default function Home() {
                 <span className="font-display text-lg">Characters</span>
                 <span className="text-xs text-muted-foreground font-normal">Coming Soon</span>
               </Button>
+            </div>
+          </div>
+
+          {/* Author Profile */}
+          <div className="pt-8 mt-12 border-t border-border animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400">
+            <div className="flex items-center gap-4 bg-secondary/30 p-4 rounded-xl backdrop-blur-sm border border-border/50">
+              <div className="relative w-16 h-16 shrink-0">
+                <img 
+                  src="/author-alfred.png" 
+                  alt="Alfred Opare Saforo" 
+                  className="w-full h-full object-cover rounded-full border-2 border-primary/20 shadow-sm"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-primary font-mono uppercase tracking-wider mb-1">Written by</p>
+                <h4 className="font-display font-bold text-lg leading-tight truncate">Alfred Opare Saforo</h4>
+                <a 
+                  href="https://linkedin.com/in/alfred2" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary mt-1 transition-colors"
+                >
+                  <Linkedin className="w-3 h-3" />
+                  Connect on LinkedIn
+                </a>
+              </div>
             </div>
           </div>
         </main>
