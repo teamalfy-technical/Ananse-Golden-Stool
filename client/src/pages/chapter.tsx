@@ -4,27 +4,28 @@ import ReactMarkdown from "react-markdown";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { useSettings } from "@/lib/store";
-import { getChapters, getChapterBySlug, updateProgress } from "@/lib/api";
+import { getChapters, getChapterBySlug, updateProgress, getLikeStatus, toggleLike, getChapterBookmarks, createBookmark, deleteBookmark } from "@/lib/api";
 import Layout from "@/components/layout";
 import { SettingsMenu } from "@/components/reader/settings-menu";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Menu, Share2, MoreHorizontal, Heart, MessageCircle, Flame, Loader2 } from "lucide-react";
+import { ChevronLeft, Menu, Share2, MoreHorizontal, Heart, MessageCircle, Flame, Loader2, Bookmark, BookmarkCheck, Copy, Check } from "lucide-react";
 import { motion, useScroll, useSpring } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export default function ChapterPage() {
   const [match, params] = useRoute("/read/:slug");
   const [, setLocation] = useLocation();
   const slug = params?.slug;
   const queryClient = useQueryClient();
-  
+
   const { isAuthenticated } = useAuth();
   const { fontSize } = useSettings();
-  
+
   const [showControls, setShowControls] = useState(true);
   const [restoredScroll, setRestoredScroll] = useState(false);
-  const [liked, setLiked] = useState(false);
-  
+  const [copied, setCopied] = useState(false);
+
   const lastScrollY = useRef(0);
   const scrollSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -55,6 +56,43 @@ export default function ChapterPage() {
     },
   });
 
+  // Like query and mutation
+  const { data: likeData } = useQuery({
+    queryKey: ["likes", chapter?.id],
+    queryFn: () => (chapter ? getLikeStatus(chapter.id) : Promise.reject("No chapter")),
+    enabled: !!chapter,
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: (chapterId: string) => toggleLike(chapterId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["likes", chapter?.id] });
+    },
+  });
+
+  // Bookmarks query and mutations
+  const { data: bookmarks = [] } = useQuery({
+    queryKey: ["bookmarks", chapter?.id],
+    queryFn: () => (chapter ? getChapterBookmarks(chapter.id) : Promise.reject("No chapter")),
+    enabled: !!chapter && isAuthenticated,
+  });
+
+  const bookmarkMutation = useMutation({
+    mutationFn: createBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks", chapter?.id] });
+      toast.success("Bookmark added!");
+    },
+  });
+
+  const deleteBookmarkMutation = useMutation({
+    mutationFn: deleteBookmark,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks", chapter?.id] });
+      toast.success("Bookmark removed");
+    },
+  });
+
   useEffect(() => {
     if (chapter && !isLoading && !restoredScroll) {
       window.scrollTo(0, 0);
@@ -66,7 +104,7 @@ export default function ChapterPage() {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      
+
       if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
         setShowControls(false);
       } else {
@@ -121,10 +159,9 @@ export default function ChapterPage() {
         style={{ scaleX }}
       />
 
-      <div 
-        className={`fixed top-0 left-0 right-0 z-40 transition-transform duration-300 bg-background/95 backdrop-blur-sm border-b border-border/50 ${
-          showControls ? "translate-y-0" : "-translate-y-full"
-        }`}
+      <div
+        className={`fixed top-0 left-0 right-0 z-40 transition-transform duration-300 bg-background/95 backdrop-blur-sm border-b border-border/50 ${showControls ? "translate-y-0" : "-translate-y-full"
+          }`}
       >
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/">
@@ -132,18 +169,18 @@ export default function ChapterPage() {
               <ChevronLeft className="w-5 h-5 text-muted-foreground" />
             </Button>
           </Link>
-          
+
           <span className="text-xs font-mono uppercase tracking-widest text-muted-foreground truncate max-w-[150px]" data-testid="text-chapter-nav-title">
             {chapter.title}
           </span>
 
           <div className="flex items-center gap-1">
-             <SettingsMenu />
-             <Link href="/toc">
-                <Button variant="ghost" size="icon" data-testid="button-toc">
-                  <Menu className="w-5 h-5 text-muted-foreground" />
-                </Button>
-             </Link>
+            <SettingsMenu />
+            <Link href="/toc">
+              <Button variant="ghost" size="icon" data-testid="button-toc">
+                <Menu className="w-5 h-5 text-muted-foreground" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -163,54 +200,124 @@ export default function ChapterPage() {
           </div>
         </header>
 
-        <div 
+        <div
           className="prose prose-lg mx-auto"
           style={{ fontSize: `calc(1.125rem * ${fontSize / 100})` }}
           data-testid="chapter-content"
         >
           <ReactMarkdown
-             components={{
-                p: ({node, ...props}) => <p className="mb-6 font-serif leading-loose text-foreground/90" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-bold text-foreground" {...props} />,
-                em: ({node, ...props}) => <em className="italic text-foreground/80" {...props} />,
-             }}
+            components={{
+              p: ({ node, ...props }) => <p className="mb-6 font-serif leading-loose text-foreground/90" {...props} />,
+              strong: ({ node, ...props }) => <strong className="font-bold text-foreground" {...props} />,
+              em: ({ node, ...props }) => <em className="italic text-foreground/80" {...props} />,
+            }}
           >
             {chapter.content}
           </ReactMarkdown>
         </div>
 
         <div className="mt-16 mb-12 flex justify-center">
-            <div className="flex items-center gap-2 p-1.5 bg-secondary/30 rounded-full border border-border/50 backdrop-blur-sm">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className={cn(
-                        "rounded-full px-3 gap-2 hover:bg-background transition-all",
-                        liked && "text-red-500 bg-red-500/10 hover:bg-red-500/20"
-                    )}
-                    onClick={() => setLiked(!liked)}
-                    data-testid="button-like"
-                >
-                    <Heart className={cn("w-4 h-4", liked && "fill-current")} />
-                    <span className="text-xs">{liked ? 1243 : 1242}</span>
-                </Button>
-                <div className="w-px h-4 bg-border" />
-                <Button variant="ghost" size="sm" className="rounded-full px-3 gap-2 hover:bg-background">
-                    <Flame className="w-4 h-4 text-orange-500" />
-                    <span className="text-xs">482</span>
-                </Button>
-                <Button variant="ghost" size="sm" className="rounded-full px-3 gap-2 hover:bg-background">
-                    <MessageCircle className="w-4 h-4 text-blue-500" />
-                    <span className="text-xs">86</span>
-                </Button>
-            </div>
+          <div className="flex items-center gap-2 p-1.5 bg-secondary/30 rounded-full border border-border/50 backdrop-blur-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "rounded-full px-3 gap-2 hover:bg-background transition-all",
+                likeData?.liked && "text-red-500 bg-red-500/10 hover:bg-red-500/20"
+              )}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error("Please log in to like chapters");
+                  return;
+                }
+                likeMutation.mutate(chapter.id);
+              }}
+              disabled={likeMutation.isPending}
+              data-testid="button-like"
+            >
+              <Heart className={cn("w-4 h-4", likeData?.liked && "fill-current")} />
+              <span className="text-xs">{likeData?.count || 0}</span>
+            </Button>
+            <div className="w-px h-4 bg-border" />
+            <Button variant="ghost" size="sm" className="rounded-full px-3 gap-2 hover:bg-background">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <span className="text-xs">482</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="rounded-full px-3 gap-2 hover:bg-background">
+              <MessageCircle className="w-4 h-4 text-blue-500" />
+              <span className="text-xs">86</span>
+            </Button>
+            <div className="w-px h-4 bg-border" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "rounded-full px-3 gap-2 hover:bg-background transition-all",
+                bookmarks.length > 0 && "text-amber-500"
+              )}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast.error("Please log in to add bookmarks");
+                  return;
+                }
+                // Get selected text or bookmark current position
+                const selection = window.getSelection()?.toString().trim();
+                if (selection) {
+                  bookmarkMutation.mutate({
+                    chapterId: chapter.id,
+                    textSnippet: selection.slice(0, 200),
+                    paragraphIndex: 0, // Simplified for now
+                  });
+                } else {
+                  toast.info("Select some text to bookmark it");
+                }
+              }}
+              disabled={bookmarkMutation.isPending}
+              data-testid="button-bookmark"
+            >
+              {bookmarks.length > 0 ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+              <span className="text-xs">{bookmarks.length}</span>
+            </Button>
+          </div>
         </div>
 
         <div className="pt-8 border-t border-border">
           <div className="flex flex-col gap-6">
             <div className="flex justify-center gap-4">
-              <Button variant="outline" size="sm" className="rounded-full gap-2 text-muted-foreground" data-testid="button-share">
-                <Share2 className="w-4 h-4" /> Share
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full gap-2 text-muted-foreground"
+                data-testid="button-share"
+                onClick={async () => {
+                  const shareUrl = window.location.href;
+                  const shareData = {
+                    title: chapter.title,
+                    text: `Read "${chapter.title}" from Ananse: The Golden Deception`,
+                    url: shareUrl,
+                  };
+
+                  try {
+                    if (navigator.share && navigator.canShare(shareData)) {
+                      await navigator.share(shareData);
+                    } else {
+                      await navigator.clipboard.writeText(shareUrl);
+                      setCopied(true);
+                      toast.success("Link copied to clipboard!");
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  } catch (err) {
+                    // User cancelled or error - try clipboard fallback
+                    if ((err as Error).name !== 'AbortError') {
+                      await navigator.clipboard.writeText(shareUrl);
+                      setCopied(true);
+                      toast.success("Link copied to clipboard!");
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  }
+                }}
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />} {copied ? "Copied!" : "Share"}
               </Button>
               <Button variant="outline" size="sm" className="rounded-full gap-2 text-muted-foreground">
                 <MoreHorizontal className="w-4 h-4" /> Options
@@ -219,7 +326,7 @@ export default function ChapterPage() {
 
             <div className="grid grid-cols-2 gap-4">
               {prevChapter ? (
-                <div 
+                <div
                   onClick={() => {
                     setLocation(`/read/${prevChapter.slug}`);
                   }}
@@ -232,9 +339,9 @@ export default function ChapterPage() {
               ) : <div />}
 
               {nextChapter ? (
-                <div 
+                <div
                   onClick={() => {
-                     setLocation(`/read/${nextChapter.slug}`);
+                    setLocation(`/read/${nextChapter.slug}`);
                   }}
                   className="group cursor-pointer p-4 rounded-xl border border-primary bg-primary/5 hover:bg-primary/10 transition-all text-right"
                   data-testid="button-next-chapter"
@@ -244,15 +351,15 @@ export default function ChapterPage() {
                 </div>
               ) : (
                 <div className="p-4 rounded-xl border border-border bg-secondary/20 text-center flex items-center justify-center">
-                   <span className="text-sm text-muted-foreground font-serif italic">To be continued...</span>
+                  <span className="text-sm text-muted-foreground font-serif italic">To be continued...</span>
                 </div>
               )}
             </div>
-            
+
             <Link href="/toc">
-                <Button variant="ghost" className="w-full text-muted-foreground hover:text-primary" data-testid="button-toc-bottom">
-                    Back to Table of Contents
-                </Button>
+              <Button variant="ghost" className="w-full text-muted-foreground hover:text-primary" data-testid="button-toc-bottom">
+                Back to Table of Contents
+              </Button>
             </Link>
           </div>
         </div>

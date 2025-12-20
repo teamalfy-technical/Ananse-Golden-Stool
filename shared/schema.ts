@@ -44,6 +44,27 @@ export const readingProgress = pgTable("reading_progress", {
   uniqueUserChapter: sql`UNIQUE (user_id, chapter_id)`,
 }));
 
+// Bookmarks for saving favorite passages
+export const bookmarks = pgTable("bookmarks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  chapterId: varchar("chapter_id").notNull().references(() => chapters.id, { onDelete: "cascade" }),
+  textSnippet: text("text_snippet").notNull(), // The highlighted text
+  paragraphIndex: integer("paragraph_index").notNull(), // Which paragraph in the chapter
+  note: text("note"), // Optional user note
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Likes for chapter reactions
+export const likes = pgTable("likes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  chapterId: varchar("chapter_id").notNull().references(() => chapters.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueUserChapterLike: sql`UNIQUE (user_id, chapter_id)`,
+}));
+
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles, {
@@ -51,6 +72,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [profiles.userId],
   }),
   readingProgress: many(readingProgress),
+  bookmarks: many(bookmarks),
+  likes: many(likes),
 }));
 
 export const profilesRelations = relations(profiles, ({ one }) => ({
@@ -62,6 +85,8 @@ export const profilesRelations = relations(profiles, ({ one }) => ({
 
 export const chaptersRelations = relations(chapters, ({ many }) => ({
   readingProgress: many(readingProgress),
+  bookmarks: many(bookmarks),
+  likes: many(likes),
 }));
 
 export const readingProgressRelations = relations(readingProgress, ({ one }) => ({
@@ -112,3 +137,21 @@ export type UpdateChapter = z.infer<typeof updateChapterSchema>;
 export type ReadingProgress = typeof readingProgress.$inferSelect;
 export type InsertReadingProgress = z.infer<typeof insertReadingProgressSchema>;
 export type UpdateReadingProgress = z.infer<typeof updateReadingProgressSchema>;
+
+// Bookmark schemas and types
+export const insertBookmarkSchema = createInsertSchema(bookmarks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Bookmark = typeof bookmarks.$inferSelect;
+export type InsertBookmark = z.infer<typeof insertBookmarkSchema>;
+
+// Like schemas and types
+export const insertLikeSchema = createInsertSchema(likes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Like = typeof likes.$inferSelect;
+export type InsertLike = z.infer<typeof insertLikeSchema>;

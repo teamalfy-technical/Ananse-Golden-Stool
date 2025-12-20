@@ -1,7 +1,9 @@
-import { 
-  chapters, 
-  profiles, 
+import {
+  chapters,
+  profiles,
   readingProgress,
+  bookmarks,
+  likes,
   type Chapter,
   type InsertChapter,
   type UpdateChapter,
@@ -9,10 +11,14 @@ import {
   type InsertProfile,
   type ReadingProgress,
   type InsertReadingProgress,
-  type UpdateReadingProgress
+  type UpdateReadingProgress,
+  type Bookmark,
+  type InsertBookmark,
+  type Like,
+  type InsertLike
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // Chapters
@@ -33,7 +39,18 @@ export interface IStorage {
   getReadingProgress(userId: string, chapterId: string): Promise<ReadingProgress | undefined>;
   getAllUserProgress(userId: string): Promise<ReadingProgress[]>;
   upsertReadingProgress(progress: InsertReadingProgress): Promise<ReadingProgress>;
-  getLastReadChapter(userId: string): Promise<{ chapterId: string; updatedAt: Date } | undefined>;
+  getLastReadChapter(userId: string): Promise<{ chapterId: string; scrollPosition: number; updatedAt: Date } | undefined>;
+
+  // Bookmarks
+  getBookmarksByUser(userId: string): Promise<Bookmark[]>;
+  getBookmarksByChapter(userId: string, chapterId: string): Promise<Bookmark[]>;
+  createBookmark(bookmark: InsertBookmark): Promise<Bookmark>;
+  deleteBookmark(id: string, userId: string): Promise<void>;
+
+  // Likes
+  getLike(userId: string, chapterId: string): Promise<Like | undefined>;
+  getLikeCount(chapterId: string): Promise<number>;
+  toggleLike(userId: string, chapterId: string): Promise<{ liked: boolean; count: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -127,18 +144,77 @@ export class DatabaseStorage implements IStorage {
     return progress;
   }
 
-  async getLastReadChapter(userId: string): Promise<{ chapterId: string; updatedAt: Date } | undefined> {
+  async getLastReadChapter(userId: string): Promise<{ chapterId: string; scrollPosition: number; updatedAt: Date } | undefined> {
     const [result] = await db
       .select({
         chapterId: readingProgress.chapterId,
+        scrollPosition: readingProgress.scrollPosition,
         updatedAt: readingProgress.updatedAt,
       })
       .from(readingProgress)
       .where(eq(readingProgress.userId, userId))
       .orderBy(desc(readingProgress.updatedAt))
       .limit(1);
-    return result ? { chapterId: result.chapterId, updatedAt: result.updatedAt! } : undefined;
+    return result ? { chapterId: result.chapterId, scrollPosition: result.scrollPosition, updatedAt: result.updatedAt! } : undefined;
+  }
+
+  // Bookmarks
+  async getBookmarksByUser(userId: string): Promise<Bookmark[]> {
+    return await db
+      .select()
+      .from(bookmarks)
+      .where(eq(bookmarks.userId, userId))
+      .orderBy(desc(bookmarks.createdAt));
+  }
+
+  async getBookmarksByChapter(userId: string, chapterId: string): Promise<Bookmark[]> {
+    return await db
+      .select()
+      .from(bookmarks)
+      .where(and(eq(bookmarks.userId, userId), eq(bookmarks.chapterId, chapterId)))
+      .orderBy(bookmarks.paragraphIndex);
+  }
+
+  async createBookmark(insertBookmark: InsertBookmark): Promise<Bookmark> {
+    const [bookmark] = await db.insert(bookmarks).values(insertBookmark).returning();
+    return bookmark;
+  }
+
+  async deleteBookmark(id: string, userId: string): Promise<void> {
+    await db.delete(bookmarks).where(and(eq(bookmarks.id, id), eq(bookmarks.userId, userId)));
+  }
+
+  // Likes
+  async getLike(userId: string, chapterId: string): Promise<Like | undefined> {
+    const [like] = await db
+      .select()
+      .from(likes)
+      .where(and(eq(likes.userId, userId), eq(likes.chapterId, chapterId)));
+    return like;
+  }
+
+  async getLikeCount(chapterId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: count() })
+      .from(likes)
+      .where(eq(likes.chapterId, chapterId));
+    return result?.count || 0;
+  }
+
+  async toggleLike(userId: string, chapterId: string): Promise<{ liked: boolean; count: number }> {
+    const existingLike = await this.getLike(userId, chapterId);
+
+    if (existingLike) {
+      await db.delete(likes).where(eq(likes.id, existingLike.id));
+      const newCount = await this.getLikeCount(chapterId);
+      return { liked: false, count: newCount };
+    } else {
+      await db.insert(likes).values({ userId, chapterId });
+      const newCount = await this.getLikeCount(chapterId);
+      return { liked: true, count: newCount };
+    }
   }
 }
 
 export const storage = new DatabaseStorage();
+

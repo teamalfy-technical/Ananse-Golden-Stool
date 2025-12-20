@@ -70,7 +70,7 @@ export default function Home() {
 
         <main className="flex-1 space-y-8 relative z-10">
           {lastReadChapter ? (
-            <div 
+            <div
               className="group relative bg-card hover:bg-card/80 border border-border/50 rounded-xl p-6 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.02] cursor-pointer"
               onClick={() => setLocation(`/read/${lastReadChapter.slug}`)}
               data-testid="card-resume-reading"
@@ -80,15 +80,15 @@ export default function Home() {
               </div>
               <p className="text-sm text-muted-foreground mb-1 font-sans">You left off at</p>
               <h3 className="text-xl font-display font-bold mb-3" data-testid="text-last-chapter-title">{lastReadChapter.title}</h3>
-              
+
               <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden mb-2">
-                <div 
+                <div
                   className="bg-primary h-full rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: "50%" }}
+                  style={{ width: `${Math.round((lastRead?.scrollPosition || 0) * 100)}%` }}
                 />
               </div>
               <div className="flex justify-between items-center text-xs text-muted-foreground font-sans">
-                <span>In progress</span>
+                <span>{Math.round((lastRead?.scrollPosition || 0) * 100)}% complete</span>
                 <span className="flex items-center gap-1">
                   Continue <ChevronRight className="w-3 h-3" />
                 </span>
@@ -102,8 +102,8 @@ export default function Home() {
                 Step into the world of Kwaku Ananse, where ancient folklore meets modern mystery.
               </p>
               {chapters.length > 0 && (
-                <Button 
-                  size="lg" 
+                <Button
+                  size="lg"
                   className="w-full font-sans tracking-wide bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                   onClick={() => setLocation(`/read/${chapters[0].slug}`)}
                   data-testid="button-start-reading"
@@ -119,8 +119,8 @@ export default function Home() {
               <div className="flex justify-between items-end border-b border-border pb-2">
                 <h3 className="font-sans text-sm font-semibold uppercase tracking-wider text-muted-foreground">Latest Release</h3>
               </div>
-              
-              <div 
+
+              <div
                 onClick={() => setLocation(`/read/${latestChapter.slug}`)}
                 className="block group cursor-pointer"
                 data-testid="card-latest-chapter"
@@ -156,7 +156,7 @@ export default function Home() {
               </Button>
             </Link>
             <div className="opacity-50 cursor-not-allowed">
-               <Button variant="outline" disabled className="w-full h-auto py-4 flex flex-col gap-2">
+              <Button variant="outline" disabled className="w-full h-auto py-4 flex flex-col gap-2">
                 <span className="font-display text-lg">Characters</span>
                 <span className="text-xs text-muted-foreground font-normal">Coming Soon</span>
               </Button>
@@ -166,18 +166,18 @@ export default function Home() {
           <div className="pt-8 mt-12 border-t border-border animate-in fade-in slide-in-from-bottom-4 duration-700 delay-400">
             <div className="flex items-center gap-4 bg-secondary/30 p-4 rounded-xl backdrop-blur-sm border border-border/50">
               <div className="relative w-16 h-16 shrink-0">
-                <img 
-                  src="/author-alfred.png" 
-                  alt="Alfred Opare Saforo" 
+                <img
+                  src="/author-alfred.png"
+                  alt="Alfred Opare Saforo"
                   className="w-full h-full object-cover object-top rounded-full border-2 border-primary/20 shadow-sm"
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-primary font-mono uppercase tracking-wider mb-1">Written by</p>
                 <h4 className="font-display font-bold text-lg leading-tight truncate">Alfred Opare Saforo</h4>
-                <a 
-                  href="https://linkedin.com/in/alfred2" 
-                  target="_blank" 
+                <a
+                  href="https://linkedin.com/in/alfred2"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary mt-1 transition-colors"
                   data-testid="link-linkedin"

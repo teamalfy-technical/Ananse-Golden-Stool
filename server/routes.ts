@@ -2,12 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replit_integrations/auth";
-import { 
-  insertChapterSchema, 
+import {
+  insertChapterSchema,
   updateChapterSchema,
   insertReadingProgressSchema,
   updateReadingProgressSchema,
-  insertProfileSchema
+  insertProfileSchema,
+  insertBookmarkSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -22,7 +23,7 @@ export async function registerRoutes(
   }
 
   // CHAPTER ROUTES (Public)
-  
+
   // Get all published chapters
   app.get("/api/chapters", async (_req, res) => {
     try {
@@ -41,7 +42,7 @@ export async function registerRoutes(
       if (!chapter) {
         return res.status(404).json({ message: "Chapter not found" });
       }
-      
+
       // Only return published chapters to non-admins
       if (chapter.status !== "published") {
         if (!req.isAuthenticated()) {
@@ -53,7 +54,7 @@ export async function registerRoutes(
           return res.status(404).json({ message: "Chapter not found" });
         }
       }
-      
+
       res.json(chapter);
     } catch (error) {
       console.error("Error fetching chapter:", error);
@@ -62,17 +63,17 @@ export async function registerRoutes(
   });
 
   // ADMIN CHAPTER ROUTES (Protected)
-  
+
   // Get all chapters (including drafts) - Admin only
   app.get("/api/admin/chapters", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
       const userIsAdmin = await isAdmin(userId);
-      
+
       if (!userIsAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
-      
+
       const chapters = await storage.getAllChapters();
       res.json(chapters);
     } catch (error) {
@@ -86,11 +87,11 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const userIsAdmin = await isAdmin(userId);
-      
+
       if (!userIsAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
-      
+
       const chapterData = insertChapterSchema.parse(req.body);
       const chapter = await storage.createChapter(chapterData);
       res.status(201).json(chapter);
@@ -108,18 +109,18 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const userIsAdmin = await isAdmin(userId);
-      
+
       if (!userIsAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
-      
+
       const chapterData = updateChapterSchema.parse(req.body);
       const chapter = await storage.updateChapter(req.params.id, chapterData);
-      
+
       if (!chapter) {
         return res.status(404).json({ message: "Chapter not found" });
       }
-      
+
       res.json(chapter);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -135,11 +136,11 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const userIsAdmin = await isAdmin(userId);
-      
+
       if (!userIsAdmin) {
         return res.status(403).json({ message: "Forbidden: Admin access required" });
       }
-      
+
       await storage.deleteChapter(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -149,13 +150,13 @@ export async function registerRoutes(
   });
 
   // PROFILE ROUTES (Protected)
-  
+
   // Get user's own profile
   app.get("/api/profile", isAuthenticated, async (req, res) => {
     try {
       const userId = (req.user as any).claims.sub;
       let profile = await storage.getProfileByUserId(userId);
-      
+
       // Auto-create profile if it doesn't exist
       if (!profile) {
         profile = await storage.createProfile({
@@ -164,7 +165,7 @@ export async function registerRoutes(
           displayName: null,
         });
       }
-      
+
       res.json(profile);
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -177,12 +178,12 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const updateData = insertProfileSchema.partial().omit({ userId: true }).parse(req.body);
-      
+
       const profile = await storage.updateProfile(userId, updateData);
       if (!profile) {
         return res.status(404).json({ message: "Profile not found" });
       }
-      
+
       res.json(profile);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -194,7 +195,7 @@ export async function registerRoutes(
   });
 
   // READING PROGRESS ROUTES (Protected)
-  
+
   // Get all user's reading progress
   app.get("/api/progress", isAuthenticated, async (req, res) => {
     try {
@@ -224,14 +225,14 @@ export async function registerRoutes(
     try {
       const userId = (req.user as any).claims.sub;
       const progressData = updateReadingProgressSchema.parse(req.body);
-      
+
       // Add userId to the data
       const fullProgressData = {
         userId,
         chapterId: req.body.chapterId,
         ...progressData,
       };
-      
+
       const progress = await storage.upsertReadingProgress(fullProgressData);
       res.json(progress);
     } catch (error) {
@@ -240,6 +241,100 @@ export async function registerRoutes(
       }
       console.error("Error updating progress:", error);
       res.status(500).json({ message: "Failed to update progress" });
+    }
+  });
+
+  // BOOKMARK ROUTES (Protected)
+
+  // Get all bookmarks for current user
+  app.get("/api/bookmarks", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const bookmarks = await storage.getBookmarksByUser(userId);
+      res.json(bookmarks);
+    } catch (error) {
+      console.error("Error fetching bookmarks:", error);
+      res.status(500).json({ message: "Failed to fetch bookmarks" });
+    }
+  });
+
+  // Get bookmarks for specific chapter
+  app.get("/api/bookmarks/chapter/:chapterId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const bookmarks = await storage.getBookmarksByChapter(userId, req.params.chapterId);
+      res.json(bookmarks);
+    } catch (error) {
+      console.error("Error fetching chapter bookmarks:", error);
+      res.status(500).json({ message: "Failed to fetch bookmarks" });
+    }
+  });
+
+  // Create bookmark
+  app.post("/api/bookmarks", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const bookmarkData = insertBookmarkSchema.omit({ userId: true }).parse(req.body);
+
+      const bookmark = await storage.createBookmark({
+        ...bookmarkData,
+        userId,
+      });
+      res.status(201).json(bookmark);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid bookmark data", errors: error.errors });
+      }
+      console.error("Error creating bookmark:", error);
+      res.status(500).json({ message: "Failed to create bookmark" });
+    }
+  });
+
+  // Delete bookmark
+  app.delete("/api/bookmarks/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      await storage.deleteBookmark(req.params.id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting bookmark:", error);
+      res.status(500).json({ message: "Failed to delete bookmark" });
+    }
+  });
+
+  // LIKE ROUTES
+
+  // Get like status and count for a chapter
+  app.get("/api/likes/:chapterId", async (req, res) => {
+    try {
+      const chapterId = req.params.chapterId;
+      const count = await storage.getLikeCount(chapterId);
+
+      let liked = false;
+      if (req.isAuthenticated()) {
+        const userId = (req.user as any).claims.sub;
+        const like = await storage.getLike(userId, chapterId);
+        liked = !!like;
+      }
+
+      res.json({ liked, count });
+    } catch (error) {
+      console.error("Error fetching likes:", error);
+      res.status(500).json({ message: "Failed to fetch likes" });
+    }
+  });
+
+  // Toggle like for a chapter
+  app.post("/api/likes/:chapterId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any).claims.sub;
+      const chapterId = req.params.chapterId;
+
+      const result = await storage.toggleLike(userId, chapterId);
+      res.json(result);
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      res.status(500).json({ message: "Failed to toggle like" });
     }
   });
 

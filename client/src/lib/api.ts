@@ -1,4 +1,4 @@
-import type { Chapter, InsertChapter, UpdateChapter, ReadingProgress, Profile } from "@shared/schema";
+import type { Chapter, InsertChapter, UpdateChapter, ReadingProgress, Profile, Bookmark } from "@shared/schema";
 
 async function fetchApi(url: string, options?: RequestInit) {
   const response = await fetch(url, {
@@ -78,7 +78,7 @@ export async function getProgress(): Promise<ReadingProgress[]> {
   return fetchApi("/api/progress");
 }
 
-export async function getLastRead(): Promise<{ chapterId: string; updatedAt: Date } | null> {
+export async function getLastRead(): Promise<{ chapterId: string; scrollPosition: number; updatedAt: Date } | null> {
   return fetchApi("/api/progress/last");
 }
 
@@ -88,3 +88,37 @@ export async function updateProgress(chapterId: string, scrollPosition: number, 
     body: JSON.stringify({ chapterId, scrollPosition, completed }),
   });
 }
+
+// Bookmarks
+export async function getBookmarks(): Promise<Bookmark[]> {
+  return fetchApi("/api/bookmarks");
+}
+
+export async function getChapterBookmarks(chapterId: string): Promise<Bookmark[]> {
+  return fetchApi(`/api/bookmarks/chapter/${chapterId}`);
+}
+
+export async function createBookmark(data: { chapterId: string; textSnippet: string; paragraphIndex: number; note?: string }): Promise<Bookmark> {
+  return fetchApi("/api/bookmarks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteBookmark(id: string): Promise<void> {
+  return fetchApi(`/api/bookmarks/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// Likes
+export async function getLikeStatus(chapterId: string): Promise<{ liked: boolean; count: number }> {
+  return fetchApi(`/api/likes/${chapterId}`);
+}
+
+export async function toggleLike(chapterId: string): Promise<{ liked: boolean; count: number }> {
+  return fetchApi(`/api/likes/${chapterId}`, {
+    method: "POST",
+  });
+}
+
