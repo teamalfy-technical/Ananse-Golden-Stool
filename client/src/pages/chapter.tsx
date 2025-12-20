@@ -26,7 +26,7 @@ export default function ChapterPage() {
   const [liked, setLiked] = useState(false);
   
   const lastScrollY = useRef(0);
-  const scrollSaveTimer = useRef<number>();
+  const scrollSaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
