@@ -40,7 +40,9 @@ export const readingProgress = pgTable("reading_progress", {
   scrollPosition: real("scroll_position").notNull().default(0), // percentage 0-1
   completed: boolean("completed").notNull().default(false),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => ({
+  uniqueUserChapter: sql`UNIQUE (user_id, chapter_id)`,
+}));
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({

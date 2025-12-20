@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import TOC from "@/pages/toc";
 import ChapterPage from "@/pages/chapter";
+import AdminPage from "@/pages/admin";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/toc" component={TOC} />
       <Route path="/read/:slug" component={ChapterPage} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );
