@@ -1,0 +1,174 @@
+```text
+You are Replit’s AI software architect + UX designer + full-stack engineer.
+
+Project:
+Build a MOBILE-FIRST interactive story website for “Ananse / The Golden Deception” where users can create accounts, log in, and read serialized chapters as the author publishes daily. The site must feel like a premium reading app (fast, immersive, stateful), not a blog.
+
+Non-negotiables (Product Goals):
+- Mobile-first reading experience (phone is primary device).
+- Immersive, distraction-free chapter reader.
+- Resume exactly where the reader left off (chapter + scroll position).
+- Table of Contents (TOC) that scales to many chapters.
+- Reader settings: font size + theme toggle (Light/Dark/Sepia).
+- Optional engagement: reactions + spoiler-safe comments.
+- Optional extras: lore/artifacts pages (spoiler-safe).
+- Admin publishing workflow for daily updates.
+- PWA-ready (installable + offline cache for last-read chapters).
+- Ethical engagement only (no spammy popups, no forced signups before reading).
+
+Preferred Tech Stack (use this unless impossible):
+- Next.js (App Router) + TypeScript
+- TailwindCSS for styling
+- Supabase for Auth + Postgres DB (or Prisma + Neon if Supabase isn’t available)
+- Vercel-style patterns but deployable on Replit
+- Service Worker (Workbox or custom) + Web App Manifest for PWA
+- Analytics: simple event tracking (PostHog optional; otherwise minimal custom table + console logs)
+
+Design Language (Mobile Reading UX):
+- Default body text size: 18px on mobile; line-height ~1.6; comfortable margins.
+- Max reading width in larger screens (still mobile-first).
+- Minimal UI chrome while reading: top bar fades/hides on scroll; reappears on tap.
+- Progress bar at top showing chapter scroll progress.
+- Sticky end-of-chapter nav: Prev / Next + “Back to TOC”.
+- “Resume Reading” card on Home showing last chapter + percentage.
+- Theme: Light/Dark/Sepia. Save preference per user (or localStorage for guests).
+- Accessibility: high contrast, large tap targets, semantic HTML headings, reduced-motion support.
+
+Core Pages / Routes:
+1) / (Home / Library)
+   - Story cover + “Start Reading” or “Resume Reading”
+   - Latest chapter badge (“Updated today”)
+   - Quick entry to TOC
+2) /toc
+   - Chapter list (in order), read/unread state, progress indicator
+3) /read/[slug]
+   - Chapter Reader (distraction-free)
+   - Top bar: back, TOC, settings
+   - Progress bar
+   - End-of-chapter: Prev/Next, reactions, comments teaser
+4) /login, /signup (or modal auth)
+   - Allow guest reading without login
+   - Prompt signup only when user wants to save progress, comment, react, or subscribe to updates
+5) /settings
+   - Theme, font size, notifications opt-in, reduce motion toggle
+6) /bookmarks (optional MVP+)
+   - saved bookmarks/highlights
+7) /extras (optional MVP+)
+   - Characters, Glossary, Timeline, Artifact pages
+
+Admin (Author) Requirements:
+- /admin (protected route, only author role)
+- Create/edit chapters:
+  - title, slug, published_at, status (draft/published/scheduled), content (Markdown/MDX)
+  - optional: excerpt, cover image, “recap” field
+- Schedule publish time (daily releases)
+- Quick stats: reads per chapter, completion rate approximation, reactions count
+
+Database Schema (minimum viable):
+- users (handled by auth provider) + profile table:
+  - id, display_name, role (reader/admin), created_at
+- chapters:
+  - id, title, slug (unique), content_md, excerpt, published_at, status, created_at, updated_at, order_index
+- reading_progress:
+  - id, user_id, chapter_id, scroll_y (or progress_pct), updated_at
+- reactions:
+  - id, user_id, chapter_id, reaction_type, created_at
+- comments:
+  - id, user_id, chapter_id, parent_id (nullable), content, is_spoiler (bool), created_at, updated_at, deleted_at (nullable)
+- optional: subscriptions (for notifications/email), bookmarks, glossary_terms, artifacts
+
+Reader Features (MVP):
+- Guest reading (no login required)
+- When logged in: sync progress across devices
+- Resume reading (guest uses localStorage; logged-in uses DB + localStorage fallback)
+- Theme + font size saved (guest localStorage; logged-in store in profile table)
+- TOC shows read status and last read chapter highlight
+- Chapter reader:
+  - clean typography
+  - progress bar
+  - next/prev navigation
+  - reading time estimate per chapter (calculate words/200wpm)
+- Reaction buttons at chapter end (e.g., ❤️ 😮 🔥) – only for logged-in (or allow guest locally but encourage signup to save)
+
+Comments (V1):
+- Comment section loads only after tapping “View Comments” to avoid slowing reader page
+- Spoiler-safe:
+  - Only show comments for the chapter the user is on
+  - “is_spoiler” comments collapse behind a “Tap to reveal spoiler” control
+- Basic moderation for admin: delete/hide comment
+
+PWA & Performance:
+- Add manifest.json + icons + theme_color
+- Service worker:
+  - Cache app shell + static assets
+  - Cache last 3 visited chapters for offline reading
+  - If offline and user opens a cached chapter, show it; otherwise show friendly offline screen
+- Performance budgets:
+  - Avoid heavy libraries
+  - Lazy-load comments + extras
+  - Use next/image for images
+  - Use font-display: swap; prefer system font stack for MVP (or 1 webfont max)
+- Respect prefers-reduced-motion: disable animations if enabled
+
+SEO:
+- Each chapter has clean URL (/read/chapter-1-web-of-beginnings)
+- Unique <title> and meta description per chapter
+- Basic OpenGraph tags for sharing
+- /toc must contain standard <a> links to each chapter (crawlable)
+
+Analytics (lightweight):
+Track events (console + optional DB table):
+- chapter_view
+- chapter_complete (scroll >= 95%)
+- reaction_added
+- comment_posted
+- signup_completed
+- notification_opt_in (if implemented)
+
+UI Components:
+- ReaderSettingsSheet (bottom sheet): font size, theme, reduce motion
+- TOCDrawer (optional): quick TOC in reader
+- ProgressBar
+- ResumeCard
+- SpoilerTag component
+- ReactionBar
+
+Content Handling:
+- Store chapters in DB as Markdown.
+- Render with a Markdown renderer that supports basic formatting (headings, italics, blockquotes).
+- Add support for “inline glossary” later (mark terms like [[Ofin River]]).
+
+Deliverables:
+1) Working Next.js app with the routes above.
+2) Supabase (or equivalent) configured for auth + DB migrations/seed.
+3) Seed 3 sample chapters (draft/published mix) + one “Extras” glossary page.
+4) Mobile-first UI with theme + font size.
+5) Resume reading works for guest + logged-in.
+6) PWA installable + offline cache for last-read chapters.
+7) Admin can publish new chapters daily without touching code.
+
+Implementation Plan (do in order):
+- Setup project + Tailwind + layout shells
+- Auth + role-based routing (admin only)
+- DB schema + migrations + seed data
+- Chapter list + chapter reader (Markdown render) + next/prev navigation
+- Progress saving (localStorage + DB sync)
+- Reader settings (theme + font size)
+- Reactions
+- Comments (lazy-load)
+- PWA manifest + service worker caching
+- Basic SEO tags + OpenGraph
+- Polish: accessibility, reduced motion, loading states, error handling
+
+Acceptance Criteria (must pass):
+- On mobile, reading feels clean and fast; controls don’t get in the way.
+- User closes browser and returns: “Resume Reading” returns them to exact spot.
+- TOC is instantly usable and shows progress.
+- Theme + font size persist.
+- Admin can add a chapter and publish it; it appears in TOC and Home “latest”.
+- Works offline for recently read chapters.
+
+Start now by generating the full codebase, file structure, and database setup for Replit.
+```
+
+If you want, I can also tailor this prompt to the exact stack you prefer on Replit (e.g., **Next.js + Supabase** vs **Remix + Prisma**), but the above is already strong enough to produce a full build.
