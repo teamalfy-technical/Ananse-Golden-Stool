@@ -26,7 +26,7 @@ export default function ChapterPage() {
   const [liked, setLiked] = useState(false);
   
   const lastScrollY = useRef(0);
-  const scrollSaveTimer = useRef<NodeJS.Timeout>();
+  const scrollSaveTimer = useRef<number>();
 
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
@@ -37,7 +37,7 @@ export default function ChapterPage() {
 
   const { data: chapter, isLoading } = useQuery({
     queryKey: ["chapter", slug],
-    queryFn: () => getChapterBySlug(slug!),
+    queryFn: () => (slug ? getChapterBySlug(slug) : Promise.reject("No slug")),
     enabled: !!slug,
   });
 
@@ -56,11 +56,11 @@ export default function ChapterPage() {
   });
 
   useEffect(() => {
-    if (chapter && !loading && !restoredScroll) {
+    if (chapter && !isLoading && !restoredScroll) {
       window.scrollTo(0, 0);
       setRestoredScroll(true);
     }
-  }, [chapter, restoredScroll]);
+  }, [chapter, isLoading, restoredScroll]);
 
   useEffect(() => {
     const handleScroll = () => {
