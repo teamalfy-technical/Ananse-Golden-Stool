@@ -145,7 +145,7 @@ export default function Home() {
                 <img 
                   src="/author-alfred.png" 
                   alt="Alfred Opare Saforo" 
-                  className="w-full h-full object-cover rounded-full border-2 border-primary/20 shadow-sm"
+                  className="w-full h-full object-cover object-top rounded-full border-2 border-primary/20 shadow-sm"
                 />
               </div>
               <div className="flex-1 min-w-0">
