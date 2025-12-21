@@ -1,7 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { isAuthenticated } from "./replit_integrations/auth";
+import { verifyFirebaseToken, optionalFirebaseAuth } from "./firebase-auth";
 import {
   insertChapterSchema,
   updateChapterSchema,
@@ -11,6 +11,9 @@ import {
   insertBookmarkSchema
 } from "@shared/schema";
 import { z } from "zod";
+
+// Middleware alias for cleaner route definitions
+const isAuthenticated = verifyFirebaseToken;
 
 export async function registerRoutes(
   httpServer: Server,
@@ -48,7 +51,7 @@ export async function registerRoutes(
         if (!req.isAuthenticated()) {
           return res.status(404).json({ message: "Chapter not found" });
         }
-        const userId = (req.user as any).claims.sub;
+        const userId = (req as any).user?.uid;
         const userIsAdmin = await isAdmin(userId);
         if (!userIsAdmin) {
           return res.status(404).json({ message: "Chapter not found" });
@@ -67,7 +70,7 @@ export async function registerRoutes(
   // Get all chapters (including drafts) - Admin only
   app.get("/api/admin/chapters", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const userIsAdmin = await isAdmin(userId);
 
       if (!userIsAdmin) {
@@ -85,7 +88,7 @@ export async function registerRoutes(
   // Create chapter - Admin only
   app.post("/api/admin/chapters", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const userIsAdmin = await isAdmin(userId);
 
       if (!userIsAdmin) {
@@ -107,7 +110,7 @@ export async function registerRoutes(
   // Update chapter - Admin only
   app.patch("/api/admin/chapters/:id", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const userIsAdmin = await isAdmin(userId);
 
       if (!userIsAdmin) {
@@ -134,7 +137,7 @@ export async function registerRoutes(
   // Delete chapter - Admin only
   app.delete("/api/admin/chapters/:id", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const userIsAdmin = await isAdmin(userId);
 
       if (!userIsAdmin) {
@@ -154,7 +157,7 @@ export async function registerRoutes(
   // Get user's own profile
   app.get("/api/profile", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       let profile = await storage.getProfileByUserId(userId);
 
       // Auto-create profile if it doesn't exist
@@ -176,7 +179,7 @@ export async function registerRoutes(
   // Update user's own profile
   app.patch("/api/profile", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const updateData = insertProfileSchema.partial().omit({ userId: true }).parse(req.body);
 
       const profile = await storage.updateProfile(userId, updateData);
@@ -199,7 +202,7 @@ export async function registerRoutes(
   // Get all user's reading progress
   app.get("/api/progress", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const progress = await storage.getAllUserProgress(userId);
       res.json(progress);
     } catch (error) {
@@ -211,7 +214,7 @@ export async function registerRoutes(
   // Get last read chapter
   app.get("/api/progress/last", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const lastRead = await storage.getLastReadChapter(userId);
       res.json(lastRead || null);
     } catch (error) {
@@ -223,7 +226,7 @@ export async function registerRoutes(
   // Update reading progress for a chapter
   app.post("/api/progress", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const progressData = updateReadingProgressSchema.parse(req.body);
 
       // Add userId to the data
@@ -249,7 +252,7 @@ export async function registerRoutes(
   // Get all bookmarks for current user
   app.get("/api/bookmarks", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const bookmarks = await storage.getBookmarksByUser(userId);
       res.json(bookmarks);
     } catch (error) {
@@ -261,7 +264,7 @@ export async function registerRoutes(
   // Get bookmarks for specific chapter
   app.get("/api/bookmarks/chapter/:chapterId", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const bookmarks = await storage.getBookmarksByChapter(userId, req.params.chapterId);
       res.json(bookmarks);
     } catch (error) {
@@ -273,7 +276,7 @@ export async function registerRoutes(
   // Create bookmark
   app.post("/api/bookmarks", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const bookmarkData = insertBookmarkSchema.omit({ userId: true }).parse(req.body);
 
       const bookmark = await storage.createBookmark({
@@ -293,7 +296,7 @@ export async function registerRoutes(
   // Delete bookmark
   app.delete("/api/bookmarks/:id", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       await storage.deleteBookmark(req.params.id, userId);
       res.status(204).send();
     } catch (error) {
@@ -312,7 +315,7 @@ export async function registerRoutes(
 
       let liked = false;
       if (req.isAuthenticated()) {
-        const userId = (req.user as any).claims.sub;
+        const userId = (req as any).user?.uid;
         const like = await storage.getLike(userId, chapterId);
         liked = !!like;
       }
@@ -327,7 +330,7 @@ export async function registerRoutes(
   // Toggle like for a chapter
   app.post("/api/likes/:chapterId", isAuthenticated, async (req, res) => {
     try {
-      const userId = (req.user as any).claims.sub;
+      const userId = (req as any).user?.uid;
       const chapterId = req.params.chapterId;
 
       const result = await storage.toggleLike(userId, chapterId);

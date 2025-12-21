@@ -1,12 +1,23 @@
 import type { Chapter, InsertChapter, UpdateChapter, ReadingProgress, Profile, Bookmark } from "@shared/schema";
+import { getIdToken } from "./firebase";
 
 async function fetchApi(url: string, options?: RequestInit) {
+  // Get Firebase auth token if user is logged in
+  const token = await getIdToken();
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...options?.headers,
+  };
+
+  // Add auth header if we have a token
+  if (token) {
+    (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
+    headers,
     credentials: "include",
   });
 
@@ -20,11 +31,6 @@ async function fetchApi(url: string, options?: RequestInit) {
   }
 
   return response.json();
-}
-
-// Auth
-export async function getCurrentUser() {
-  return fetchApi("/api/auth/user");
 }
 
 // Chapters (Public)

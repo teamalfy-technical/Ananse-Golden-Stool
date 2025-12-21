@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import cors from "cors";
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,6 +12,12 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// Enable CORS for Firebase frontend
+app.use(cors({
+  origin: true,
+  credentials: true,
+}));
 
 app.use(
   express.json({
@@ -61,10 +67,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Setup auth BEFORE other routes
-  await setupAuth(app);
-  registerAuthRoutes(app);
-  
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
