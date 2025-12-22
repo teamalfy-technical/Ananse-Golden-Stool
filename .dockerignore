@@ -1,13 +1,8 @@
-# Dependencies
+# Dependencies (will be installed fresh)
 node_modules/
 .npm
 
-# Source files (we only need built files)
-client/
-server/
-script/
-
-# Development files
+# Development/IDE files
 *.md
 *.log
 .env*
@@ -22,10 +17,8 @@ replit.nix
 *.spec.*
 __tests__/
 
-# Build tools config
-vite.config.ts
-tsconfig.json
-drizzle.config.ts
-tailwind.config.ts
-postcss.config.js
-components.json
+# Firebase cache
+.firebase/
+
+# Built files (we build inside container)
+dist/
