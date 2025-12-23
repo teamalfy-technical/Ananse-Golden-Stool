@@ -1,6 +1,10 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
 import { rm, readFile } from "fs/promises";
+import * as dotenv from "dotenv";
+
+// Load environment variables from .env
+dotenv.config();
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -30,10 +34,18 @@ const allowlist = [
   "xlsx",
   "zod",
   "zod-validation-error",
+  "zustand",
 ];
 
 async function buildAll() {
   await rm("dist", { recursive: true, force: true });
+
+  console.log("Environment variables found:");
+  Object.keys(process.env).forEach(key => {
+    if (key.startsWith("VITE_")) {
+      console.log(`- ${key}: ${process.env[key]?.substring(0, 5)}...`);
+    }
+  });
 
   console.log("building client...");
   await viteBuild();

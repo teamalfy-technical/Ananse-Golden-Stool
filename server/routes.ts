@@ -20,10 +20,27 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   // Helper function to check if user is admin
-  async function isAdmin(userId: string): Promise<boolean> {
+  async function isAdmin(userId: string | undefined): Promise<boolean> {
+    if (!userId) return false;
     const profile = await storage.getProfileByUserId(userId);
     return profile?.role === "admin";
   }
+
+  // Auth diagnostic route
+  app.get("/api/me", optionalFirebaseAuth, async (req, res) => {
+    const user = (req as any).user;
+    if (!user) {
+      return res.json({ authenticated: false });
+    }
+
+    const profile = await storage.getProfileByUserId(user.uid);
+    res.json({
+      authenticated: true,
+      uid: user.uid,
+      email: user.email,
+      role: profile?.role || "reader"
+    });
+  });
 
   // CHAPTER ROUTES (Public)
 
@@ -48,10 +65,10 @@ export async function registerRoutes(
 
       // Only return published chapters to non-admins
       if (chapter.status !== "published") {
-        if (!req.isAuthenticated()) {
+        const userId = (req as any).user?.uid;
+        if (!userId) {
           return res.status(404).json({ message: "Chapter not found" });
         }
-        const userId = (req as any).user?.uid;
         const userIsAdmin = await isAdmin(userId);
         if (!userIsAdmin) {
           return res.status(404).json({ message: "Chapter not found" });
@@ -314,9 +331,9 @@ export async function registerRoutes(
       const count = await storage.getLikeCount(chapterId);
 
       let liked = false;
-      if (req.isAuthenticated()) {
-        const userId = (req as any).user?.uid;
-        const like = await storage.getLike(userId, chapterId);
+      const user = (req as any).user;
+      if (user) {
+        const like = await storage.getLike(user.uid, chapterId);
         liked = !!like;
       }
 
