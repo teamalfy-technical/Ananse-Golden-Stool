@@ -2,12 +2,15 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { eq } from "drizzle-orm";
 import { profiles } from "../shared/schema.js";
+import * as dotenv from "dotenv";
+
+dotenv.config();
 
 const { Pool } = pg;
 
 async function makeAdmin() {
   const userId = process.argv[2];
-  
+
   if (!userId) {
     console.error("Usage: npx tsx script/make-admin.ts <user-id>");
     console.error("");

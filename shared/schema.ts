@@ -10,7 +10,7 @@ import { users } from "./models/auth";
 // User profiles with additional metadata
 export const profiles = pgTable("profiles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
   role: varchar("role", { length: 20 }).notNull().default("reader"), // "reader" or "admin"
   displayName: text("display_name"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -35,7 +35,7 @@ export const chapters = pgTable("chapters", {
 // Reading progress tracking
 export const readingProgress = pgTable("reading_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
   chapterId: varchar("chapter_id").notNull().references(() => chapters.id, { onDelete: "cascade" }),
   scrollPosition: real("scroll_position").notNull().default(0), // percentage 0-1
   completed: boolean("completed").notNull().default(false),
@@ -47,7 +47,7 @@ export const readingProgress = pgTable("reading_progress", {
 // Bookmarks for saving favorite passages
 export const bookmarks = pgTable("bookmarks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
   chapterId: varchar("chapter_id").notNull().references(() => chapters.id, { onDelete: "cascade" }),
   textSnippet: text("text_snippet").notNull(), // The highlighted text
   paragraphIndex: integer("paragraph_index").notNull(), // Which paragraph in the chapter
@@ -58,12 +58,20 @@ export const bookmarks = pgTable("bookmarks", {
 // Likes for chapter reactions
 export const likes = pgTable("likes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull(),
   chapterId: varchar("chapter_id").notNull().references(() => chapters.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   uniqueUserChapterLike: sql`UNIQUE (user_id, chapter_id)`,
 }));
+
+// Site settings for editable content
+export const siteSettings = pgTable("site_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -107,7 +115,9 @@ export const insertProfileSchema = createInsertSchema(profiles).omit({
   updatedAt: true,
 });
 
-export const insertChapterSchema = createInsertSchema(chapters).omit({
+export const insertChapterSchema = createInsertSchema(chapters, {
+  publishedAt: z.coerce.date().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -155,3 +165,12 @@ export const insertLikeSchema = createInsertSchema(likes).omit({
 
 export type Like = typeof likes.$inferSelect;
 export type InsertLike = z.infer<typeof insertLikeSchema>;
+
+// Site setting schemas and types
+export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = z.infer<typeof insertSiteSettingSchema>;

@@ -1,6 +1,13 @@
 import type { Chapter, InsertChapter, UpdateChapter, ReadingProgress, Profile, Bookmark } from "@shared/schema";
 import { getIdToken } from "./firebase";
 
+export interface MeResponse {
+  authenticated: boolean;
+  uid?: string;
+  email?: string;
+  role?: string;
+}
+
 async function fetchApi(url: string, options?: RequestInit) {
   // Get Firebase auth token if user is logged in
   const token = await getIdToken();
@@ -22,8 +29,10 @@ async function fetchApi(url: string, options?: RequestInit) {
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || "Request failed");
+    const errorData = await response.json().catch(() => ({ message: "Request failed" }));
+    const error = new Error(errorData.message || "Request failed") as any;
+    if (errorData.errors) error.errors = errorData.errors;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -125,6 +134,23 @@ export async function getLikeStatus(chapterId: string): Promise<{ liked: boolean
 export async function toggleLike(chapterId: string): Promise<{ liked: boolean; count: number }> {
   return fetchApi(`/api/likes/${chapterId}`, {
     method: "POST",
+  });
+}
+
+// Diagnostics
+export async function getMe(): Promise<MeResponse> {
+  return fetchApi("/api/me");
+}
+
+// Site Settings
+export async function getSiteSettings(): Promise<Record<string, string>> {
+  return fetchApi("/api/site-settings");
+}
+
+export async function updateSiteSettings(data: Record<string, string>): Promise<any> {
+  return fetchApi("/api/admin/site-settings", {
+    method: "PATCH",
+    body: JSON.stringify(data),
   });
 }
 

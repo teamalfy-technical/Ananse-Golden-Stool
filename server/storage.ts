@@ -15,10 +15,13 @@ import {
   type Bookmark,
   type InsertBookmark,
   type Like,
-  type InsertLike
+  type InsertLike,
+  type SiteSetting,
+  type InsertSiteSetting
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { eq, desc, and, sql, count, inArray } from "drizzle-orm";
+import { siteSettings } from "@shared/schema";
 
 export interface IStorage {
   // Chapters
@@ -51,6 +54,11 @@ export interface IStorage {
   getLike(userId: string, chapterId: string): Promise<Like | undefined>;
   getLikeCount(chapterId: string): Promise<number>;
   toggleLike(userId: string, chapterId: string): Promise<{ liked: boolean; count: number }>;
+
+  // Site Settings
+  getSiteSetting(key: string): Promise<SiteSetting | undefined>;
+  getAllSiteSettings(): Promise<SiteSetting[]>;
+  updateSiteSetting(key: string, value: string): Promise<SiteSetting>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -213,6 +221,28 @@ export class DatabaseStorage implements IStorage {
       const newCount = await this.getLikeCount(chapterId);
       return { liked: true, count: newCount };
     }
+  }
+
+  // Site Settings
+  async getSiteSetting(key: string): Promise<SiteSetting | undefined> {
+    const [setting] = await db.select().from(siteSettings).where(eq(siteSettings.key, key));
+    return setting;
+  }
+
+  async getAllSiteSettings(): Promise<SiteSetting[]> {
+    return await db.select().from(siteSettings);
+  }
+
+  async updateSiteSetting(key: string, value: string): Promise<SiteSetting> {
+    const [setting] = await db
+      .insert(siteSettings)
+      .values({ key, value })
+      .onConflictDoUpdate({
+        target: [siteSettings.key],
+        set: { value, updatedAt: new Date() },
+      })
+      .returning();
+    return setting;
   }
 }
 

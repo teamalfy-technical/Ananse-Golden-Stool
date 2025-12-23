@@ -322,6 +322,84 @@ export async function registerRoutes(
     }
   });
 
+  // SITE SETTINGS ROUTES
+
+  // Get all site settings (Public)
+  app.get("/api/site-settings", async (req, res) => {
+    try {
+      const settings = await storage.getAllSiteSettings();
+      // Convert array to key-value object for easier use on frontend
+      const settingsMap = settings.reduce((acc, curr) => {
+        acc[curr.key] = curr.value;
+        return acc;
+      }, {} as Record<string, string>);
+      res.json(settingsMap);
+    } catch (error) {
+      console.error("Error fetching site settings:", error);
+      res.status(500).json({ message: "Failed to fetch site settings" });
+    }
+  });
+
+  // Update site settings (Admin only)
+  app.patch("/api/admin/site-settings", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req as any).user?.uid;
+      const userIsAdmin = await isAdmin(userId);
+
+      if (!userIsAdmin) {
+        return res.status(403).json({ message: "Forbidden: Admin access required" });
+      }
+
+      const updates = req.body; // Expecting { key: value, ... }
+      if (typeof updates !== "object" || updates === null) {
+        return res.status(400).json({ message: "Invalid settings data" });
+      }
+
+      const results = [];
+      for (const [key, value] of Object.entries(updates)) {
+        if (typeof value === "string") {
+          results.push(await storage.updateSiteSetting(key, value));
+        }
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error updating site settings:", error);
+      res.status(500).json({ message: "Failed to update site settings" });
+    }
+  });
+
+  // Seed default site settings if empty
+  async function seedSiteSettings() {
+    const existing = await storage.getAllSiteSettings();
+    if (existing.length === 0) {
+      console.log("Seeding default site settings...");
+      const defaults = {
+        "site_title": "Ananse",
+        "site_subtitle": "The Golden Deception",
+        "site_genre": "Interactive Novel",
+        "author_name": "Alfred Opare Saforo",
+        "author_bio_label": "Written by",
+        "author_role": "Full-stack Developer & Storyteller",
+        "author_linkedin": "https://linkedin.com/in/alfred2",
+        "author_image": "/author-alfred.png",
+        "hero_excerpt": "Step into the world of Kwaku Ananse, where ancient folklore meets modern mystery.",
+        "latest_release_label": "Latest Release",
+        "toc_label": "Table of Contents",
+        "characters_label": "Characters",
+        "characters_coming_soon": "Coming Soon"
+      };
+
+      for (const [key, value] of Object.entries(defaults)) {
+        await storage.updateSiteSetting(key, value);
+      }
+      console.log("Seeding complete.");
+    }
+  }
+
+  // Run seed
+  seedSiteSettings().catch(err => console.error("Error seeding site settings:", err));
+
   // LIKE ROUTES
 
   // Get like status and count for a chapter
